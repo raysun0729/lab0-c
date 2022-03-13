@@ -264,4 +264,42 @@ void q_reverse(struct list_head *head)
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
-void q_sort(struct list_head *head) {}
+void q_sort(struct list_head *head) 
+{
+    if (!head || list_empty(head) || list_is_singular(head))
+        return;
+
+    // split
+    struct list_head *slow, *fast;
+    for (slow = head->next, fast = head->next->next;
+         fast != head && fast->next != head;
+         slow = slow->next, fast = fast->next->next)
+        ;
+
+    LIST_HEAD(left);
+    LIST_HEAD(right);
+    list_cut_position(&left, head, slow);
+    // check node is odd or even
+    fast = fast != head ? fast : fast->prev;
+    list_cut_position(&right, head, fast);
+    q_sort(&left);
+    q_sort(&right);
+    // Merge
+    while (!list_empty(&left) && !list_empty(&right)) {
+        struct list_head *l = left.next, *r = right.next;
+        element_t *ele_l = container_of(l, element_t, list);
+        element_t *ele_r = container_of(r, element_t, list);
+        // strcmp  1: str1 > str2, 0: equal, -1: str1 < str2
+        if (strcmp(ele_l->value, ele_r->value) <= 0) {
+            list_del(l);
+            list_add_tail(l, head);
+        } else {
+            list_del(r);
+            list_add_tail(r, head);
+        }
+    }
+    if (!list_empty(&left))
+        list_splice_tail(&left, head);
+    if (!list_empty(&right))
+        list_splice_tail(&right, head);
+}
