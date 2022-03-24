@@ -55,7 +55,7 @@ bool q_insert_head(struct list_head *head, char *s)
     if (!node)
         return NULL; /* could not allocate space */
     int len = strlen(s) + 1;
-    node->value = malloc(sizeof(char) * len);
+    node->value = malloc(len);
     if (!node->value) {
         free(node);
         return NULL; /* could not allocate space */
@@ -81,7 +81,7 @@ bool q_insert_tail(struct list_head *head, char *s)
     if (!node)
         return NULL; /* could not allocate space */
     int len = strlen(s) + 1;
-    node->value = malloc(sizeof(char) * len);
+    node->value = malloc(len);
     if (!node->value) {
         free(node);
         return NULL; /* could not allocate space */
@@ -115,7 +115,7 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
     list_del(head->next);
     if (sp) {
         // If sp is non-NULL, copy the value of removed element to *sp.
-        strncpy(sp, node->value, bufsize);
+        strncpy(sp, node->value, bufsize - 1);
         sp[bufsize - 1] = '\0';
     }
     return node;
@@ -131,12 +131,13 @@ element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
         return NULL;
 
     element_t *node = list_entry(head->prev, element_t, list);
-    list_del(head->prev);
+
     if (sp) {
         // If sp is non-NULL, copy the value of removed element to *sp.
         strncpy(sp, node->value, bufsize);
         sp[bufsize - 1] = '\0';
     }
+    list_del(head->prev);
     return node;
 }
 
@@ -208,17 +209,12 @@ bool q_delete_dup(struct list_head *head)
     // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
     if (!head || list_empty(head))
         return false;
-    bool flag = false;
+
     element_t *cur, *safe;
     list_for_each_entry_safe (cur, safe, head, list) {
         if (&safe->list != head && !strcmp(cur->value, safe->value)) {
             list_del(&cur->list);
             q_release_element(cur);
-            flag = true;
-        } else if (flag) {
-            list_del(&cur->list);
-            q_release_element(cur);
-            flag = false;
         }
     }
     return true;
@@ -264,7 +260,7 @@ void q_reverse(struct list_head *head)
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
-void q_sort(struct list_head *head) 
+void q_sort(struct list_head *head)
 {
     if (!head || list_empty(head) || list_is_singular(head))
         return;
