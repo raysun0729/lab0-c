@@ -108,18 +108,22 @@ bool q_insert_tail(struct list_head *head, char *s)
  */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || q_size(head) == 0)
+    if (!head || list_empty(head) || !sp)
         return NULL;
-
-    element_t *node = list_entry(head->next, element_t, list);
+    element_t *delete = list_first_entry(head, element_t, list);
     list_del(head->next);
-    if (sp) {
-        // If sp is non-NULL, copy the value of removed element to *sp.
-        strncpy(sp, node->value, bufsize - 1);
+    int len = strlen(delete->value);
+    if (len > (bufsize - 1)) {
+        strncpy(sp, delete->value, bufsize - 1);
         sp[bufsize - 1] = '\0';
+    } else {
+        strncpy(sp, delete->value, len);
+        sp[len] = '\0';
     }
-    return node;
+    return delete;
 }
+
+/*參考Chao-Shun-Cheng同學的code*/
 
 /*
  * Attempt to remove element from tail of queue.
@@ -127,18 +131,19 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
  */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || q_size(head) == 0)
+    if (!head || list_empty(head) || !sp)
         return NULL;
-
-    element_t *node = list_entry(head->prev, element_t, list);
-
-    if (sp) {
-        // If sp is non-NULL, copy the value of removed element to *sp.
-        strncpy(sp, node->value, bufsize);
-        sp[bufsize - 1] = '\0';
-    }
+    element_t *remove = list_last_entry(head, element_t, list);
     list_del(head->prev);
-    return node;
+    int len = strlen(remove->value);
+    if (len > (bufsize - 1)) {
+        strncpy(sp, remove->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    } else {
+        strncpy(sp, remove->value, len);
+        sp[len] = '\0';
+    }
+    return remove;
 }
 
 /*
@@ -159,10 +164,11 @@ int q_size(struct list_head *head)
 {
     if (!head || list_empty(head))
         return 0;
-    struct list_head *node;
+    struct list_head *node = NULL;
     int size = 0;
-    list_for_each (node, head)
-        ++size;
+    list_for_each (node, head) {
+        size++;
+    }
     return size;
 }
 
@@ -207,15 +213,30 @@ bool q_delete_mid(struct list_head *head)
 bool q_delete_dup(struct list_head *head)
 {
     // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
-    if (!head || list_empty(head))
+    if (!head) {
         return false;
-
-    element_t *cur, *safe;
-    list_for_each_entry_safe (cur, safe, head, list) {
-        if (&safe->list != head && !strcmp(cur->value, safe->value)) {
-            list_del(&cur->list);
-            q_release_element(cur);
+    }
+    struct list_head *node, *next;
+    bool next_same_val = false;
+    for (node = (head)->next; node != (head);) {
+        next = node->next;
+        // cppcheck-suppress nullPointer
+        element_t *del = list_entry(node, element_t, list);
+        if (next != head &&
+            strcmp(del->value,
+                   // cppcheck-suppress nullPointer
+                   list_entry(next, element_t, list)->value) == 0) {
+            next_same_val = true;
+            node->prev->next = next;
+            next->prev = node->prev;
+            q_release_element(del);
+        } else if (next_same_val) {
+            next_same_val = false;
+            node->prev->next = next;
+            next->prev = node->prev;
+            q_release_element(del);
         }
+        node = next;
     }
     return true;
 }
@@ -225,10 +246,20 @@ bool q_delete_dup(struct list_head *head)
  */
 void q_swap(struct list_head *head)
 {
-    struct list_head *prev, *cur;
-    list_for_each_safe (prev, cur, head) {
-        list_move_tail(cur, prev);
-        cur = prev->next;
+    if (!head || list_is_singular(head))
+        return;
+    struct list_head *node = head->next, *front = NULL, *back = NULL, *next = NULL;
+    while ((node != head) && (node->next != head)) {
+        next = node->next;
+        front = node->prev;
+        back = node->next->next;
+        front->next = next;
+        next->prev = front;
+        next->next = node;
+        node->prev = next;
+        node->next = back;
+        back->prev = node;
+        node = back;
     }
     // https://leetcode.com/problems/swap-nodes-in-pairs/
 }
@@ -260,42 +291,59 @@ void q_reverse(struct list_head *head)
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
+void mergetwolist(struct list_head *head1,struct list_head *head2,struct list_head *head)
+{
+    if (!head || !head1 || !head2 || (list_empty(head1) && list_empty(head2)))
+        return;
+    if (list_empty(head1)) {
+        list_splice_tail_init(head2, head);
+        return;
+    }
+    if (list_empty(head2)) {
+        list_splice_tail_init(head1, head);
+        return;
+    }
+    struct list_head *temp = NULL, *l1 = head1->next, *l2 = head2->next;
+    while (l1 != head1 && l2 != head2) {
+        if (strcmp(list_entry(l1, element_t, list)->value,
+                   list_entry(l2, element_t, list)->value) > 0) {
+            temp = l2;
+            l2 = l2->next;
+            list_move_tail(temp, head);
+        } else {
+            temp = l1;
+            l1 = l1->next;
+            list_move_tail(temp, head);
+        }
+    }
+    list_splice_tail_init(head1, head);
+    list_splice_tail_init(head2, head);
+}
+
+void mergesort(struct list_head *head, int size)
+{
+    if (!head || list_empty(head) || list_is_singular(head))
+        return;
+    LIST_HEAD(head1);
+    LIST_HEAD(head2);
+    int mid = size >> 1, count = 0;
+    struct list_head *node = NULL, *safe = NULL;
+    list_for_each_safe (node, safe, head) {
+        count++;
+        if (count == mid) {
+            list_cut_position(&head1, head, node);
+            list_splice_tail_init(head, &head2);
+            break;
+        }
+    }
+    mergesort(&head1, mid);
+    mergesort(&head2, size - mid);
+    mergetwolist(&head1, &head2, head);
+}
+
 void q_sort(struct list_head *head)
 {
     if (!head || list_empty(head) || list_is_singular(head))
         return;
-
-    // split
-    struct list_head *slow, *fast;
-    for (slow = head->next, fast = head->next->next;
-         fast != head && fast->next != head;
-         slow = slow->next, fast = fast->next->next)
-        ;
-
-    LIST_HEAD(left);
-    LIST_HEAD(right);
-    list_cut_position(&left, head, slow);
-    // check node is odd or even
-    fast = fast != head ? fast : fast->prev;
-    list_cut_position(&right, head, fast);
-    q_sort(&left);
-    q_sort(&right);
-    // Merge
-    while (!list_empty(&left) && !list_empty(&right)) {
-        struct list_head *l = left.next, *r = right.next;
-        element_t *ele_l = container_of(l, element_t, list);
-        element_t *ele_r = container_of(r, element_t, list);
-        // strcmp  1: str1 > str2, 0: equal, -1: str1 < str2
-        if (strcmp(ele_l->value, ele_r->value) <= 0) {
-            list_del(l);
-            list_add_tail(l, head);
-        } else {
-            list_del(r);
-            list_add_tail(r, head);
-        }
-    }
-    if (!list_empty(&left))
-        list_splice_tail(&left, head);
-    if (!list_empty(&right))
-        list_splice_tail(&right, head);
+    mergesort(head, q_size(head));
 }
