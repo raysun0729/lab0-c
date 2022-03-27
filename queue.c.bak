@@ -108,22 +108,22 @@ bool q_insert_tail(struct list_head *head, char *s)
  */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || list_empty(head))
+    if (!head || list_empty(head) || !sp)
         return NULL;
-	
-	if(sp){
-		element_t *remove = list_first_entry(head, element_t, list);
-		size_t len = strlen(remove->value);
-		len = (bufsize-1) > len ? len : (bufsize-1);
-		memcpy(sp, remove->value, len);
-		sp[len] = '\0';
-	
-		list_del(&list->list);
-		return remove;
-	}
-    return NULL;
-    
+    element_t *delete = list_first_entry(head, element_t, list);
+    list_del(head->next);
+    int len = strlen(delete->value);
+    if (len > (bufsize - 1)) {
+        strncpy(sp, delete->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    } else {
+        strncpy(sp, delete->value, len);
+        sp[len] = '\0';
+    }
+    return delete;
 }
+
+/*參考Chao-Shun-Cheng同學的code*/
 
 /*
  * Attempt to remove element from tail of queue.
@@ -131,21 +131,19 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
  */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || list_empty(head))
+    if (!head || list_empty(head) || !sp)
         return NULL;
-	
-	if(sp){
-		element_t *remove = list_entry(head->prev, element_t, list);
-		size_t len = strlen(remove -> value);
-		len = (bufsize-1) > len ? len : (bufsize-1);
-		memcpy(sp, remove->value, len);
-		sp[len] = '\0';
-		
-		list_del(&remove->list);
-		return remove;
-	}
-	return NULL;
-    
+    element_t *remove = list_last_entry(head, element_t, list);
+    list_del(head->prev);
+    int len = strlen(remove->value);
+    if (len > (bufsize - 1)) {
+        strncpy(sp, remove->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    } else {
+        strncpy(sp, remove->value, len);
+        sp[len] = '\0';
+    }
+    return remove;
 }
 
 /*
