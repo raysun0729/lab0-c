@@ -108,21 +108,20 @@ bool q_insert_tail(struct list_head *head, char *s)
  */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
+    element_t *first;
+
     if (!head || list_empty(head))
         return NULL;
-	
-	if(sp){
-		element_t *remove = list_first_entry(head, element_t, list);
-		size_t len = strlen(remove->value);
-		len = (bufsize-1) > len ? len : (bufsize-1);
-		memcpy(sp, remove->value, len);
-		sp[len] = '\0';
-	
-		list_del(&list->list);
-		return remove;
-	}
-    return NULL;
-    
+
+    first = list_entry(head->next, element_t, list);
+    list_del(&first->list);
+
+    if (sp && bufsize) {
+        strncpy(sp, first->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    }
+
+    return first;
 }
 
 /*
@@ -131,21 +130,20 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
  */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
+    element_t *last;
+
     if (!head || list_empty(head))
         return NULL;
-	
-	if(sp){
-		element_t *remove = list_entry(head->prev, element_t, list);
-		size_t len = strlen(remove -> value);
-		len = (bufsize-1) > len ? len : (bufsize-1);
-		memcpy(sp, remove->value, len);
-		sp[len] = '\0';
-		
-		list_del(&remove->list);
-		return remove;
-	}
-	return NULL;
-    
+
+    last = list_entry(head->prev, element_t, list);
+    list_del(&last->list);
+
+    if (sp && bufsize) {
+        strncpy(sp, last->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    }
+
+    return last;
 }
 
 /*
